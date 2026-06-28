@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartContainer · Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #151d2e;
+    --surface:  #1c2540;
+    --surface2: #243058;
+    --border:   #2e3f6a;
+    --border-lo:#253250;
+    --accent:   #5b9cf6;
+    --green:    #36c98e;
+    --red:      #f06252;
+    --text:     #dde5f8;
+    --muted:    #7a8fb8;
+    --mono:     'JetBrains Mono', monospace;
+    --sans:     'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse 70% 50% at 50% -10%, rgba(91,156,246,.12) 0%, transparent 65%),
+      radial-gradient(ellipse 40% 40% at 10% 90%, rgba(54,201,142,.06) 0%, transparent 60%);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+  }
+
+  /* ── Decorative sensor strip (top) ─────────────── */
+  .sensor-strip {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg,
+      #f06252 0%, #f06252 25%,
+      #5b9cf6 25%, #5b9cf6 50%,
+      #36c98e 50%, #36c98e 75%,
+      #a78bfa 75%, #a78bfa 100%
+    );
+    opacity: .7;
+  }
+
+  /* ── Card ───────────────────────────────────────── */
+  .login-wrap {
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
+  }
+
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border-lo);
+    border-radius: 16px;
+    padding: 42px 38px 36px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.45), 0 0 0 1px rgba(91,156,246,.04);
+  }
+
+  /* ── Logo ───────────────────────────────────────── */
+  .logo-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 32px;
+  }
+  .logo {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent) 0%, #2563eb 100%);
+    border-radius: 11px;
+    display: grid; place-items: center;
+    font-size: 22px;
+    box-shadow: 0 6px 18px rgba(91,156,246,.3);
+    flex-shrink: 0;
+  }
+  .logo-text h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: var(--text);
+  }
+  .logo-text p {
+    color: var(--muted);
+    font-size: 11px;
+    font-family: var(--mono);
+    margin-top: 2px;
+  }
+
+  /* ── Sensor indicators ──────────────────────────── */
+  .sensor-dots {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 28px;
+  }
+  .sensor-dot {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-family: var(--mono);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+  .sensor-dot .pip {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    animation: pip-pulse 2.4s ease infinite;
+  }
+  .sensor-dot.temp  { background: rgba(240,98,82,.1);  color: #f06252; }
+  .sensor-dot.temp  .pip { background: #f06252; animation-delay: 0s; }
+  .sensor-dot.hum   { background: rgba(91,156,246,.1); color: #5b9cf6; }
+  .sensor-dot.hum   .pip { background: #5b9cf6; animation-delay: .4s; }
+  .sensor-dot.water { background: rgba(54,201,142,.1); color: #36c98e; }
+  .sensor-dot.water .pip { background: #36c98e; animation-delay: .8s; }
+
+  @keyframes pip-pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: .25; }
+  }
+
+  /* ── Fields ─────────────────────────────────────── */
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-family: var(--mono);
+    font-weight: 500;
+    margin-bottom: 7px;
+  }
+  .field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 11px 14px;
+    border-radius: 9px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .field input::placeholder { color: var(--border); }
+  .field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(91,156,246,.1);
+  }
+
+  /* ── Button ─────────────────────────────────────── */
+  .btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 9px;
+    border: none;
+    background: var(--accent);
+    color: #0e1520;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s, box-shadow .15s;
+    box-shadow: 0 4px 16px rgba(91,156,246,.35);
+    letter-spacing: 0.03em;
+    margin-top: 6px;
+  }
+  .btn:hover  { opacity: .88; box-shadow: 0 6px 20px rgba(91,156,246,.4); }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+
+  /* ── Error ──────────────────────────────────────── */
+  .error {
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(240,98,82,.08);
+    border: 1px solid rgba(240,98,82,.2);
+    color: var(--red);
+    font-family: var(--mono);
+    font-size: 12px;
+    display: none;
+  }
+  .error.show { display: block; }
+
+  /* ── Hint ───────────────────────────────────────── */
+  .hint {
+    margin-top: 20px;
+    text-align: center;
+    color: var(--border);
+    font-size: 10px;
+    font-family: var(--mono);
+    letter-spacing: 0.04em;
+  }
+  .hint span { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="sensor-strip"></div>
+
+<div class="login-wrap">
+  <div class="login-card">
+
+    <div class="logo-wrap">
+      <div class="logo">🐟</div>
+      <div class="logo-text">
+        <h1>SmartAgriculture</h1>
+        <p>IoT Monitoring Dashboard</p>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="username" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <button class="btn" id="loginBtn" onclick="doLogin()">Sign In →</button>
+    <div class="error" id="errorBox">Invalid credentials</div>
+
+    <div class="hint">Default: <span>admin</span> / <span>password</span></div>
+  </div>
+</div>
+
+<script>
+const BASE = 'https://socstudentmusicforlife.com/fish_agriculture/php';  // ← CHANGE folder if needed
+
+async function doLogin() {
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('errorBox');
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value;
+
+  btn.disabled = true;
+  err.classList.remove('show');
+
+  try {
+    const r = await fetch(BASE + '/api_login.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await r.json();
+    if (data.success) {
+      window.location.href = 'index.html';
+    } else {
+      err.textContent = data.error || 'Invalid credentials';
+      err.classList.add('show');
+    }
+  } catch (e) {
+    err.textContent = 'Network error';
+    err.classList.add('show');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+</script>
+</body>
+</html>

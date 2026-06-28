@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Agriculture · IoT Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #151d2e; --surface: #1c2540; --surface2: #243058; --border: #2e3f6a; --border-lo: #253250;
+  --accent: #5b9cf6; --green: #36c98e; --yellow: #f5a94a; --red: #f06252; --purple: #a78bfa;
+  --c-temp: #f06252; --c-hum: #5b9cf6; --c-water: #36c98e; --c-rain: #a78bfa;
+  --text: #dde5f8; --muted: #7a8fb8;
+  --mono: 'JetBrains Mono', monospace; --sans: 'Inter', sans-serif;
+  --radius: 12px; --radius-sm: 8px; --shadow: 0 4px 20px rgba(0,0,0,.35);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.6; min-height: 100vh;
+  background-image: radial-gradient(ellipse 60% 40% at 70% 0%, rgba(91,156,246,.07) 0%, transparent 70%), radial-gradient(ellipse 40% 30% at 0% 80%, rgba(54,201,142,.05) 0%, transparent 60%);
+}
+.shell { max-width: 1260px; margin: 0 auto; padding: 28px 24px 72px; }
+header { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; padding-bottom: 22px; border-bottom: 1px solid var(--border-lo); }
+.logo { width: 42px; height: 42px; background: linear-gradient(135deg, var(--accent) 0%, #2563eb 100%); border-radius: 10px; display: grid; place-items: center; font-size: 20px; box-shadow: 0 4px 12px rgba(91,156,246,.3); flex-shrink: 0; }
+.header-text h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.4px; color: var(--text); }
+.header-text p { color: var(--muted); font-size: 11px; font-family: var(--mono); margin-top: 1px; }
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.badge { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--border-lo); padding: 5px 12px; border-radius: 20px; }
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s ease infinite; }
+.badge .dot.offline { background: var(--red); animation: none; }
+@keyframes pulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(54,201,142,.4); } 50% { opacity: .5; box-shadow: 0 0 0 4px rgba(54,201,142,0); } }
+#statusBar { display: flex; align-items: center; gap: 10px; padding: 11px 18px; border-radius: var(--radius-sm); font-family: var(--mono); font-size: 12px; margin-bottom: 22px; transition: all 0.3s; }
+#statusBar.normal { background: rgba(54,201,142,.08); border: 1px solid rgba(54,201,142,.2); color: var(--green); }
+#statusBar.warning { background: rgba(245,169,74,.08); border: 1px solid rgba(245,169,74,.2); color: var(--yellow); }
+#statusBar.danger { background: rgba(240,98,82,.08); border: 1px solid rgba(240,98,82,.2); color: var(--red); }
+#statusBar.stale { background: rgba(245,169,74,.08); border: 1px solid rgba(245,169,74,.2); color: var(--yellow); }
+.status-icon { font-size: 15px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.grid-1 { margin-bottom: 20px; }
+@media (max-width: 960px) { .grid-4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .grid-4, .grid-2 { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--border-lo); border-radius: var(--radius); padding: 20px 22px; box-shadow: var(--shadow); }
+.sensor-card { position: relative; overflow: hidden; padding-left: 26px; }
+.sensor-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 4px 0 0 4px; }
+.sensor-card.temp::before { background: var(--c-temp); }
+.sensor-card.hum::before { background: var(--c-hum); }
+.sensor-card.water::before { background: var(--c-water); }
+.sensor-card.rain::before { background: var(--c-rain); }
+.sensor-card .sensor-icon { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: 16px; margin-bottom: 10px; }
+.sensor-card.temp .sensor-icon { background: rgba(240,98,82,.12); }
+.sensor-card.hum .sensor-icon { background: rgba(91,156,246,.12); }
+.sensor-card.water .sensor-icon { background: rgba(54,201,142,.12); }
+.sensor-card.rain .sensor-icon { background: rgba(167,139,250,.12); }
+.card-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 6px; font-family: var(--mono); font-weight: 500; }
+.card-value { font-family: var(--mono); font-size: 34px; font-weight: 600; line-height: 1; color: var(--text); letter-spacing: -1px; }
+.card-unit { font-size: 15px; color: var(--muted); margin-left: 3px; font-weight: 400; }
+.card-sub { margin-top: 9px; font-size: 11px; color: var(--muted); font-family: var(--mono); line-height: 1.4; }
+.sensor-card.temp .card-value { color: var(--c-temp); }
+.sensor-card.hum .card-value { color: var(--c-hum); }
+.sensor-card.water .card-value { color: var(--c-water); }
+.sensor-card.rain .card-value { color: var(--c-rain); font-size: 22px; padding-top: 6px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 600; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.06em; }
+.pill.normal { background: rgba(54,201,142,.15); color: var(--green); }
+.pill.warning { background: rgba(245,169,74,.15); color: var(--yellow); }
+.pill.danger { background: rgba(240,98,82,.15); color: var(--red); }
+.rain-yes { color: var(--purple); }
+.rain-no { color: var(--muted); }
+.section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-family: var(--mono); font-weight: 500; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border-lo); }
+.insights-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+@media (max-width: 960px) { .insights-grid { grid-template-columns: 1fr; } }
+.insight-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-lo); }
+.insight-item:last-child { border-bottom: none; }
+.insight-icon { width: 30px; height: 30px; border-radius: 7px; display: grid; place-items: center; font-size: 14px; flex-shrink: 0; }
+.insight-icon.info { background: rgba(91,156,246,.13); }
+.insight-icon.warn { background: rgba(245,169,74,.13); }
+.insight-icon.danger { background: rgba(240,98,82,.13); }
+.insight-icon.ok { background: rgba(54,201,142,.13); }
+.insight-text { font-size: 12px; line-height: 1.55; }
+.insight-text strong { color: var(--text); font-weight: 500; }
+.insight-text .time { color: var(--muted); font-size: 10px; font-family: var(--mono); margin-top: 2px; display: block; }
+.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border-lo); font-size: 12px; }
+.stat-row:last-child { border-bottom: none; }
+.stat-label { color: var(--muted); }
+.stat-val { font-family: var(--mono); color: var(--text); font-size: 12px; }
+.stat-val.up { color: var(--red); }
+.stat-val.down { color: var(--green); }
+.trend-arrow { display: inline-block; margin-left: 4px; font-size: 10px; }
+.trend-up { color: var(--red); }
+.trend-down { color: var(--green); }
+.trend-flat { color: var(--muted); }
+.event-log { max-height: 180px; overflow-y: auto; font-family: var(--mono); font-size: 11px; }
+.event-log::-webkit-scrollbar { width: 4px; }
+.event-log::-webkit-scrollbar-track { background: transparent; }
+.event-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.event-entry { padding: 6px 0; border-bottom: 1px solid var(--border-lo); display: flex; gap: 10px; }
+.event-entry:last-child { border-bottom: none; }
+.event-time { color: var(--muted); white-space: nowrap; }
+.event-msg { color: var(--text); }
+.event-msg.warn { color: var(--yellow); }
+.event-msg.danger { color: var(--red); }
+.event-msg.ok { color: var(--green); }
+.event-msg.info { color: var(--accent); }
+.chart-wrap { position: relative; height: 200px; }
+.chart-label { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-bottom: 14px; letter-spacing: 0.05em; }
+.toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.toggle-row label:first-child { flex: 1; color: var(--muted); font-size: 12px; }
+.toggle { position: relative; width: 42px; height: 24px; cursor: pointer; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 24px; transition: background 0.25s; }
+.toggle-slider::before { content: ''; position: absolute; left: 4px; top: 4px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.toggle input:checked + .toggle-slider { background: var(--accent); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius-sm); font-family: var(--mono); font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s; letter-spacing: 0.02em; }
+.btn:hover { opacity: .88; }
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--accent); color: #0e1520; box-shadow: 0 2px 10px rgba(91,156,246,.3); }
+.btn-green { background: var(--green); color: #0e1520; box-shadow: 0 2px 10px rgba(54,201,142,.25); }
+.btn-yellow { background: var(--yellow); color: #0e1520; }
+.btn-red { background: var(--red); color: #fff; }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+#toast { position: fixed; bottom: 24px; right: 24px; z-index: 100; background: var(--surface2); border: 1px solid var(--border); color: var(--green); font-family: var(--mono); font-size: 12px; padding: 11px 20px; border-radius: 10px; opacity: 0; transform: translateY(8px); transition: opacity 0.3s, transform 0.3s; pointer-events: none; box-shadow: 0 8px 28px rgba(0,0,0,.4); }
+#toast.show { opacity: 1; transform: translateY(0); }
+#lastUpdated { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.divider-col { border-left: 1px solid var(--border-lo); padding-left: 20px; }
+@media (max-width: 960px) { .divider-col { border-left: none; padding-left: 0; } }
+</style>
+<base target="_blank">
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div class="logo">🐟</div>
+    <div class="header-text">
+      <h1>Smart Agriculture</h1>
+      <p>IoT Monitoring Dashboard · esp32_01</p>
+    </div>
+    <div class="header-right">
+      <div class="badge">
+        <span class="dot" id="connDot"></span>
+        <span id="connLabel">connecting…</span>
+      </div>
+      <button class="btn btn-ghost" style="font-size:11px;padding:6px 14px;" onclick="doLogout()">🚪 Logout</button>
+    </div>
+  </header>
+
+  <div id="statusBar" class="normal">
+    <span class="status-icon">●</span>
+    <span id="statusMsg">Waiting for data…</span>
+    <span style="margin-left:auto" id="lastUpdated">—</span>
+  </div>
+
+  <div class="grid-4">
+    <div class="card sensor-card temp">
+      <div class="sensor-icon">🌡️</div>
+      <div class="card-label">Temperature</div>
+      <div class="card-value" id="valTemp">—<span class="card-unit">°C</span></div>
+      <div class="card-sub" id="subTemp">threshold: 31 °C <span id="trendTemp"></span></div>
+    </div>
+    <div class="card sensor-card hum">
+      <div class="sensor-icon">💧</div>
+      <div class="card-label">Humidity</div>
+      <div class="card-value" id="valHum">—<span class="card-unit">%</span></div>
+      <div class="card-sub" id="subHum">threshold: 70 % <span id="trendHum"></span></div>
+    </div>
+    <div class="card sensor-card water">
+      <div class="sensor-icon">🪣</div>
+      <div class="card-label">Water Level</div>
+      <div class="card-value" id="valWl">—<span class="card-unit">cm</span></div>
+      <div class="card-sub" id="subWl">sensor range: 26–30 cm <span id="trendWl"></span></div>
+    </div>
+    <div class="card sensor-card rain">
+      <div class="sensor-icon">🌧️</div>
+      <div class="card-label">Rain / Drop</div>
+      <div class="card-value" id="valRain">—</div>
+      <div class="card-sub">GPIO 35 · DO signal</div>
+    </div>
+  </div>
+
+  <div class="grid-1">
+    <div class="card">
+      <div class="section-title">Insights & Analysis</div>
+      <div class="insights-grid">
+        <div>
+          <div class="card-label" style="margin-bottom:12px;">Smart Insights</div>
+          <div id="insightsList">
+            <div class="insight-item">
+              <div class="insight-icon info">ℹ️</div>
+              <div class="insight-text"><strong>System initializing.</strong><span class="time">Waiting for first sensor readings...</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="divider-col">
+          <div class="card-label" style="margin-bottom:12px;">Session Statistics</div>
+          <div class="stat-row"><span class="stat-label">Avg Temperature</span><span class="stat-val" id="statAvgTemp">—</span></div>
+          <div class="stat-row"><span class="stat-label">Avg Humidity</span><span class="stat-val" id="statAvgHum">—</span></div>
+          <div class="stat-row"><span class="stat-label">Max Water Level</span><span class="stat-val" id="statMaxWl">—</span></div>
+          <div class="stat-row"><span class="stat-label">Readings Received</span><span class="stat-val" id="statCount">0</span></div>
+          <div class="stat-row"><span class="stat-label">Danger Events</span><span class="stat-val" id="statDanger" style="color:var(--red)">0</span></div>
+          <div class="stat-row"><span class="stat-label">Warning Events</span><span class="stat-val" id="statWarning" style="color:var(--yellow)">0</span></div>
+        </div>
+        <div class="divider-col">
+          <div class="card-label" style="margin-bottom:12px;">Recent Events</div>
+          <div class="event-log" id="eventLog">
+            <div class="event-entry"><span class="event-time">--:--</span><span class="event-msg">Dashboard loaded</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="chart-label">🌡️ Temperature & Humidity · last 30 readings</div>
+      <div class="chart-wrap"><canvas id="chartTempHum"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="chart-label">🪣 Water Level · last 30 readings (sensor range 26–30 cm)</div>
+      <div class="chart-wrap"><canvas id="chartWater"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+
+    <div class="card">
+      <div class="section-title">Manual Controls</div>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:18px;line-height:1.6;">
+        Override servo states. The ESP32 syncs these within 2 seconds.
+      </p>
+
+      <div class="toggle-row">
+        <label>Servo 1 — Container Lid Motor</label>
+        <label class="toggle">
+          <input type="checkbox" id="togServo1">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <label>Servo 2 — Water Cap Motor</label>
+        <label class="toggle">
+          <input type="checkbox" id="togServo2">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="btn-row">
+          <button type="button" class="btn btn-green"  onclick="quickAction('open_container', event);  return false;">🔓 Open Container</button>
+          <button type="button" class="btn btn-ghost"  onclick="quickAction('close_container', event); return false;">🔒 Close Container</button>
+        </div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button type="button" class="btn btn-yellow" onclick="quickAction('open_drain', event);     return false;">💧 Open Drain</button>
+          <button type="button" class="btn btn-ghost"  onclick="quickAction('close_drain', event);   return false;">🚫 Close Drain</button>
+        </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">System Status</div>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:18px;line-height:1.6;">
+        Current sensor thresholds are configured on the ESP32 firmware.
+      </p>
+      <div class="stat-row"><span class="stat-label">Temp Threshold</span><span class="stat-val">31 °C</span></div>
+      <div class="stat-row"><span class="stat-label">Humidity Threshold</span><span class="stat-val">70 %</span></div>
+      <div class="stat-row"><span class="stat-label">Water Alert</span><span class="stat-val">26.5 cm</span></div>
+      <div class="stat-row"><span class="stat-label">Upload Interval</span><span class="stat-val">10 sec</span></div>
+      <div class="stat-row"><span class="stat-label">Settings Sync</span><span class="stat-val">2 sec</span></div>
+    </div>
+
+  </div>
+
+</div>
+
+<div id="toast">✓ Done</div>
+
+<script>
+/* ── Config ────────────────────────────────────── */
+const BASE = 'https://socstudentmusicforlife.com/fish_agriculture/php';
+
+/* ── Water Level Constants ───────────────────── */
+const SENSOR_BOTTOM_CM = 26.0;
+const SENSOR_RANGE_CM  = 4.0;
+const WATER_THRESHOLD_CM = 26.5;
+
+/* ── Heartbeat / Stale Data Detection ─────────── */
+let lastDataTime = 0;
+const HEARTBEAT_TIMEOUT = 8000;
+
+/* ── Water Level Conversion (ADC → cm) ─────────── */
+function wlAdcToCm(adc) {
+  if (adc == null || isNaN(adc)) return null;
+  return SENSOR_BOTTOM_CM + (parseFloat(adc) / 4095.0) * SENSOR_RANGE_CM;
+}
+
+/* ── Chart setup ───────────────────────────────── */
+const chartDefaults = {
+  responsive: true, maintainAspectRatio: false,
+  animation: { duration: 300 },
+  plugins: { legend: { labels: { color: '#7a8fb8', font: { family: 'JetBrains Mono', size: 10 } } } },
+  scales: {
+    x: { ticks: { color: '#7a8fb8', font: { family: 'JetBrains Mono', size: 9 } }, grid: { color: '#2e3f6a44' } },
+    y: { ticks: { color: '#7a8fb8', font: { family: 'JetBrains Mono', size: 9 } }, grid: { color: '#2e3f6a44' } },
+  }
+};
+
+const thCtx = document.getElementById('chartTempHum').getContext('2d');
+const wlCtx = document.getElementById('chartWater').getContext('2d');
+
+const chartTH = new Chart(thCtx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      { label: 'Temp °C',    data: [], borderColor: '#f06252', backgroundColor: 'rgba(240,98,82,.08)',  tension: 0.35, pointRadius: 2 },
+      { label: 'Humidity %', data: [], borderColor: '#5b9cf6', backgroundColor: 'rgba(91,156,246,.08)', tension: 0.35, pointRadius: 2 }
+    ]
+  },
+  options: { ...chartDefaults }
+});
+
+const chartWL = new Chart(wlCtx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      { label: 'Water (cm)', data: [], borderColor: '#36c98e', backgroundColor: 'rgba(54,201,142,.08)', tension: 0.35, pointRadius: 2 }
+    ]
+  },
+  options: {
+    ...chartDefaults,
+    scales: {
+      x: { ticks: { color: '#7a8fb8', font: { family: 'JetBrains Mono', size: 9 } }, grid: { color: '#2e3f6a44' } },
+      y: {
+        min: 26,
+        max: 30,
+        ticks: { color: '#7a8fb8', font: { family: 'JetBrains Mono', size: 9 }, stepSize: 1 },
+        grid: { color: '#2e3f6a44' },
+        title: { display: true, text: 'Distance from bottom (cm)', color: '#7a8fb8', font: { family: 'JetBrains Mono', size: 10 } }
+      }
+    }
+  }
+});
+
+const MAX_POINTS = 30;
+
+/* ── Analytics State ───────────────────────────── */
+const history = [];
+let dangerCount = 0;
+let warningCount = 0;
+let lastStatus = 'Normal';
+
+/* ── SSE Live Feed ─────────────────────────────── */
+let sse;
+function startSSE() {
+  if (sse) sse.close();
+  sse = new EventSource(BASE + '/api_stream.php', { withCredentials: true });
+
+  sse.onopen = () => {};
+  sse.onerror = () => { setConnected(false); setTimeout(startSSE, 5000); };
+
+  sse.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    lastDataTime = Date.now();
+    setConnected(true);
+    updateCards(d);
+    pushToCharts(d);
+    analyze(d);
+  };
+}
+
+setInterval(() => {
+  if (Date.now() - lastDataTime > HEARTBEAT_TIMEOUT) {
+    setConnected(false);
+  }
+}, 2000);
+
+/* ── Load history for charts on startup ─────────── */
+async function loadHistory() {
+  try {
+    const r = await fetch(BASE + '/api_get_history.php?limit=30', { credentials: 'include' });
+    const rows = await r.json();
+    rows.forEach(d => {
+      pushToCharts(d);
+      history.push(d);
+    });
+    if (history.length) {
+      lastDataTime = Date.now();
+      analyze(history[history.length - 1]);
+    }
+  } catch {}
+}
+
+/* ── Update UI ─────────────────────────────────── */
+function updateCards(d) {
+  setText('valTemp', fmt(d.temperature, 1) + '<span class="card-unit">°C</span>');
+  setText('valHum',  fmt(d.humidity, 1)    + '<span class="card-unit">%</span>');
+
+  const wlCm = wlAdcToCm(d.water_level);
+  setText('valWl', wlCm != null ? wlCm.toFixed(1) + '<span class="card-unit">cm</span>' : '—');
+
+  setText('valRain', d.water_drop == 1
+    ? '<span class="rain-yes">💧 Yes</span>'
+    : '<span class="rain-no">○ No</span>');
+
+  const dataTime = d.created_at ? new Date(d.created_at).getTime() : Date.now();
+  const ageSec = (Date.now() - dataTime) / 1000;
+  const ageMin = ageSec / 60;
+
+  const s = (d.status || 'Normal').toLowerCase();
+  const bar = document.getElementById('statusBar');
+
+  if (ageSec > 120) {
+    bar.className = 'stale';
+    document.getElementById('statusMsg').textContent = 
+      '⏱ Last data ' + (ageMin < 1 ? Math.round(ageSec) + ' sec' : Math.round(ageMin) + ' min') + ' ago — ESP32 offline';
+  } else {
+    bar.className = s;
+    document.getElementById('statusMsg').textContent =
+      s === 'normal'  ? '✓ Room environment stable' :
+      s === 'warning' ? '⚠ Warning – check readings' : '⛔ Danger – immediate action needed';
+  }
+
+  document.getElementById('lastUpdated').textContent =
+    'Updated ' + new Date().toLocaleTimeString();
+}
+
+function pushToCharts(d) {
+  const ts = d.created_at ? d.created_at.slice(11,16) : new Date().toLocaleTimeString().slice(0,5);
+
+  [chartTH, chartWL].forEach(c => {
+    c.data.labels.push(ts);
+    if (c.data.labels.length > MAX_POINTS) c.data.labels.shift();
+  });
+
+  chartTH.data.datasets[0].data.push(d.temperature);
+  chartTH.data.datasets[1].data.push(d.humidity);
+  chartTH.data.datasets.forEach(ds => { if (ds.data.length > MAX_POINTS) ds.data.shift(); });
+
+  chartWL.data.datasets[0].data.push(wlAdcToCm(d.water_level));
+  chartWL.data.datasets.forEach(ds => { if (ds.data.length > MAX_POINTS) ds.data.shift(); });
+
+  chartTH.update('none');
+  chartWL.update('none');
+}
+
+function setConnected(ok) {
+  document.getElementById('connDot').className   = 'dot' + (ok ? '' : ' offline');
+  document.getElementById('connLabel').textContent = ok ? 'live' : 'offline';
+}
+
+/* ── Analysis Engine ───────────────────────────── */
+function analyze(d) {
+  history.push(d);
+  if (history.length > 60) history.shift();
+
+  const temps = history.filter(x => x.temperature != null).map(x => x.temperature);
+  const hums  = history.filter(x => x.humidity != null).map(x => x.humidity);
+  const wls   = history.filter(x => x.water_level != null).map(x => wlAdcToCm(x.water_level));
+
+  const avgT  = temps.length ? (temps.reduce((a,b)=>a+b,0)/temps.length).toFixed(1) : '—';
+  const avgH  = hums.length  ? (hums.reduce((a,b)=>a+b,0)/hums.length).toFixed(1)   : '—';
+  const maxWl = wls.length   ? Math.max(...wls).toFixed(1) : '—';
+
+  document.getElementById('statAvgTemp').textContent = avgT + (temps.length ? ' °C' : '');
+  document.getElementById('statAvgHum').textContent  = avgH + (hums.length  ? ' %'  : '');
+  document.getElementById('statMaxWl').textContent   = maxWl + (wls.length ? ' cm' : '');
+  document.getElementById('statCount').textContent   = history.length;
+  document.getElementById('statDanger').textContent  = dangerCount;
+  document.getElementById('statWarning').textContent = warningCount;
+
+  const trend = (arr, elId) => {
+    if (arr.length < 6) { document.getElementById(elId).innerHTML = ''; return; }
+    const recent = arr.slice(-5).reduce((a,b)=>a+b,0)/5;
+    const prev   = arr.slice(-10,-5).reduce((a,b)=>a+b,0)/5;
+    const diff = recent - prev;
+    const arrow = Math.abs(diff) < 0.3 ? '<span class="trend-arrow trend-flat">→</span>' :
+                  diff > 0 ? '<span class="trend-arrow trend-up">↗ +' + diff.toFixed(1) + '</span>' :
+                  '<span class="trend-arrow trend-down">↘ ' + diff.toFixed(1) + '</span>';
+    document.getElementById(elId).innerHTML = arrow;
+  };
+  trend(temps, 'trendTemp');
+  trend(hums,  'trendHum');
+  trend(wls,   'trendWl');
+
+  const status = (d.status || 'Normal').toLowerCase();
+  if (status === 'danger' && lastStatus !== 'danger') {
+    dangerCount++;
+    const wlCm = wlAdcToCm(d.water_level);
+    logEvent('⛔ Danger: water level threshold exceeded (' + (wlCm != null ? wlCm.toFixed(1) + ' cm' : d.water_level) + ')', 'danger');
+  } else if (status === 'warning' && lastStatus !== 'warning') {
+    warningCount++;
+    const reason = d.water_drop == 1 ? 'rain detected' : 'temperature high';
+    logEvent('⚠ Warning: ' + reason, 'warn');
+  } else if (status === 'normal' && lastStatus !== 'normal') {
+    logEvent('✓ System returned to normal', 'ok');
+  }
+  lastStatus = status;
+
+  const insights = [];
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString().slice(0,5);
+
+  const wlCm = wlAdcToCm(d.water_level);
+
+  const dataTime = d.created_at ? new Date(d.created_at).getTime() : Date.now();
+  const ageMin = (Date.now() - dataTime) / 60000;
+
+  if (ageMin > 2) {
+    insights.push({ icon: '⏱', cls: 'warn', text: '<strong>Stale data.</strong> Last reading was ' + Math.round(ageMin) + ' minutes ago. ESP32 may be powered off or disconnected.', time: timeStr });
+  }
+
+  if (wlCm != null && wlCm > WATER_THRESHOLD_CM) {
+    insights.push({ icon: '⛔', cls: 'danger', text: '<strong>Water level alert.</strong> (' + wlCm.toFixed(1) + ' cm) Drain cap motor has been triggered.', time: timeStr });
+  }
+  if (d.water_drop == 1) {
+    insights.push({ icon: '💧', cls: 'warn', text: '<strong>Rain detected.</strong> Container lid motor opened for protection.', time: timeStr });
+  }
+  if (d.temperature > 31) {
+    insights.push({ icon: '🌡️', cls: 'warn', text: '<strong>High room temperature.</strong> Lid opened for cooling ventilation.', time: timeStr });
+  }
+  if (d.humidity > 70) {
+    insights.push({ icon: '💨', cls: 'info', text: '<strong>High room humidity.</strong> Monitor for condensation.', time: timeStr });
+  }
+
+  if (temps.length >= 10) {
+    const last3 = temps.slice(-3).reduce((a,b)=>a+b,0)/3;
+    const prev3 = temps.slice(-6,-3).reduce((a,b)=>a+b,0)/3;
+    if (last3 > prev3 + 2) {
+      insights.push({ icon: '📈', cls: 'info', text: '<strong>Temperature rising fast.</strong> +' + (last3-prev3).toFixed(1) + '°C over last 3 readings.', time: timeStr });
+    }
+  }
+  if (wls.length >= 10) {
+    const last3 = wls.slice(-3).reduce((a,b)=>a+b,0)/3;
+    const prev3 = wls.slice(-6,-3).reduce((a,b)=>a+b,0)/3;
+    if (Math.abs(last3 - prev3) > 0.5) {
+      const dir = last3 > prev3 ? 'rising' : 'falling';
+      insights.push({ icon: '📈', cls: 'warn', text: '<strong>Water level ' + dir + '.</strong> ' + Math.abs(last3-prev3).toFixed(1) + ' cm change.', time: timeStr });
+    }
+  }
+
+  if (insights.length === 0) {
+    insights.push({ icon: '✅', cls: 'ok', text: '<strong>All systems nominal.</strong> No alerts. Container environment is stable.', time: timeStr });
+  }
+
+  const list = document.getElementById('insightsList');
+  list.innerHTML = insights.map(i => `
+    <div class="insight-item">
+      <div class="insight-icon ${i.cls}">${i.icon}</div>
+      <div class="insight-text">${i.text}<span class="time">${i.time}</span></div>
+    </div>
+  `).join('');
+}
+
+function logEvent(msg, cls) {
+  const log = document.getElementById('eventLog');
+  const time = new Date().toLocaleTimeString().slice(0,5);
+  const entry = document.createElement('div');
+  entry.className = 'event-entry';
+  entry.innerHTML = `<span class="event-time">${time}</span><span class="event-msg ${cls}">${msg}</span>`;
+  log.insertBefore(entry, log.firstChild);
+  while (log.children.length > 20) log.removeChild(log.lastChild);
+}
+
+/* ── Manual Controls ────────────────────────────── */
+async function quickAction(action, event) {
+  // Hard-block any default browser action (form submit, navigation, etc.)
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  const map = {
+    open_container:  { servo1_open: 1, servo2_open: 0 },
+    close_container: { servo1_open: 0, servo2_open: 0 },
+    open_drain:      { servo1_open: 0, servo2_open: 1 },
+    close_drain:     { servo1_open: 0, servo2_open: 0 },
+  };
+  const states = map[action];
+  if (!states) return;
+
+  // Sync toggles
+  document.getElementById('togServo1').checked = !!states.servo1_open;
+  document.getElementById('togServo2').checked = !!states.servo2_open;
+
+  const payload = {
+    device_id: 'esp32_01',
+    temp_threshold: 31.0,
+    humidity_threshold: 70.0,
+    water_level_threshold: 26.5,
+    upload_interval: 10,
+    buzzer_enabled: 1,
+    servo1_open: states.servo1_open,
+    servo2_open: states.servo2_open,
+  };
+
+  try {
+    const res = await fetch(BASE + '/api_update_settings.php', {
+      credentials: 'include',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    // If the server returns an error status, read the body and throw
+    if (!res.ok) {
+      const text = await res.text();
+      let msg = 'HTTP ' + res.status;
+      try { const j = JSON.parse(text); if (j.error) msg = j.error; } catch {}
+      throw new Error(msg);
+    }
+
+    toast('Command sent – ' + action.replace(/_/g, ' '));
+    logEvent('🔧 Motor command: ' + action.replace(/_/g, ' '), 'info');
+  } catch (err) {
+    console.error('quickAction failed:', err);
+    toast('Failed: ' + err.message);
+  }
+
+  return false; // extra safety for inline handler
+}
+
+async function sendServoState() {
+  const payload = {
+    device_id: 'esp32_01',
+    temp_threshold: 31.0,
+    humidity_threshold: 70.0,
+    water_level_threshold: 26.5,
+    upload_interval: 10,
+    buzzer_enabled: 1,
+    servo1_open: document.getElementById('togServo1').checked ? 1 : 0,
+    servo2_open: document.getElementById('togServo2').checked ? 1 : 0,
+  };
+  try {
+    const res = await fetch(BASE + '/api_update_settings.php', {
+      credentials: 'include',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    toast('Settings updated');
+  } catch (err) {
+    console.error('sendServoState failed:', err);
+    toast('Update failed');
+  }
+}
+
+document.getElementById('togServo1').addEventListener('change', sendServoState);
+document.getElementById('togServo2').addEventListener('change', sendServoState);
+
+/* ── Helpers ────────────────────────────────────── */
+function fmt(v, d) { return (v == null || isNaN(v)) ? '—' : parseFloat(v).toFixed(d); }
+function setText(id, html) { document.getElementById(id).innerHTML = html; }
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = '✓ ' + msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+/* ── Auth Guard ─────────────────────────────────── */
+async function checkAuth() {
+  try {
+    const r = await fetch(BASE + '/api_check_auth.php', { credentials: 'include' });
+    if (!r.ok) throw new Error('Unauthorized');
+    const data = await r.json();
+    if (!data.authenticated) throw new Error('Unauthorized');
+  } catch (e) {
+    window.location.href = 'login.html';
+  }
+}
+
+async function doLogout() {
+  await fetch(BASE + '/api_logout.php', { method: 'POST', credentials: 'include' });
+  window.location.href = 'login.html';
+}
+
+/* ── Boot ───────────────────────────────────────── */
+loadHistory();
+startSSE();
+checkAuth();
+</script>
+</body>
+</html>
